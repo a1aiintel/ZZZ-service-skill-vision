@@ -54,9 +54,9 @@ class OpticalNerve():
         #self.faced = userdetect.UserDetect()
         # refactor this into a config file
         #bools
-        self.showfeed = True
-        self.showboundingboxes = True
-        self.showdetected = True
+        self.showfeed = False
+        self.showboundingboxes = False
+        self.showdetected = False
 
         # initialize the known distance from the camera to the reference eye pic, which
         # in this case is 50cm from computer screen
@@ -414,7 +414,9 @@ class OpticalNerve():
         #emit to bus
         client.emit(
             Message("context_update",
-                    {'time': [time.asctime()],
+                    {'asctime': [time.asctime()],
+                     'time': [time.time()],
+                     'movement': [self.context.movement],
                      'number of persons': [self.context.num_persons],
                      'master': [self.context.master],
                      'smile detected ': [self.context.smiling]}))
