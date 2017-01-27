@@ -7,7 +7,7 @@ from imutils.video import FPS
 from imutils.video import WebcamVideoStream as eye
 import imutils
 
-from mycroft.Subconscious import context
+from mycroft import context
 from mycroft.messagebus.client.ws import WebsocketClient
 from mycroft.messagebus.message import Message
 
@@ -38,11 +38,11 @@ class OpticalNerve():
         # face_cascade = cv2.CascadeClassifier('cascades/lbpcascade_frontalface.xml')
         # face_cascade3 = cv2.CascadeClassifier('cascades/haarcascade_frontalface_default.xml')
         # face_cascade2 = cv2.CascadeClassifier('cascades/haarcascade_frontalface_alt.xml')
-        self.face_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/Subconscious/OpticalNerve/cascades/haarcascade_frontalface_alt2.xml')
-        self.smile_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/Subconscious/OpticalNerve/cascades/haarcascade_smile.xml')
-        self.leye_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/Subconscious/OpticalNerve/cascades/haarcascade_lefteye.xml')
-        self.reye_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/Subconscious/OpticalNerve/cascades/haarcascade_righteye.xml')
-        self.profileface_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/Subconscious/OpticalNerve/cascades/lbpcascade_profileface.xml')
+        self.face_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/OpticalNerve/cascades/haarcascade_frontalface_alt2.xml')
+        self.smile_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/OpticalNerve/cascades/haarcascade_smile.xml')
+        self.leye_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/OpticalNerve/cascades/haarcascade_lefteye.xml')
+        self.reye_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/OpticalNerve/cascades/haarcascade_righteye.xml')
+        self.profileface_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/OpticalNerve/cascades/lbpcascade_profileface.xml')
 
         #######video streaming and fps ###########33
         self.vs = eye(src=0 ).start()
