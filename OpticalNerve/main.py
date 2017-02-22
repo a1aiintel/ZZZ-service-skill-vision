@@ -7,7 +7,7 @@ from imutils.video import FPS
 from imutils.video import WebcamVideoStream as eye
 import imutils
 
-from mycroft import context
+from mycroft.context import VisionContext
 from mycroft.messagebus.client.ws import WebsocketClient
 from mycroft.messagebus.message import Message
 
@@ -29,12 +29,12 @@ class OpticalNerve():
 
     def __init__(self):
 
-        self.context = context.Context("vision.context")
+        self.context = VisionContext("vision.context")
         self.context.setdefaultcontext()
         self.font = cv2.FONT_HERSHEY_SIMPLEX
         self.line = cv2.LINE_AA
         ##############cascades##############
-
+        logger.info("initializing haar cascades")
         # face_cascade = cv2.CascadeClassifier('cascades/lbpcascade_frontalface.xml')
         # face_cascade3 = cv2.CascadeClassifier('cascades/haarcascade_frontalface_default.xml')
         # face_cascade2 = cv2.CascadeClassifier('cascades/haarcascade_frontalface_alt.xml')
@@ -45,6 +45,7 @@ class OpticalNerve():
         self.profileface_cascade = cv2.CascadeClassifier('/home/user/mycroft-core/mycroft/OpticalNerve/cascades/lbpcascade_profileface.xml')
 
         #######video streaming and fps ###########33
+        logger.info("initializing videostream")
         self.vs = eye(src=0 ).start()
         self.fps = FPS().start()
         self.rect = (161,79,150,150)#random initial guess for foreground/face position for background extraction
@@ -55,8 +56,8 @@ class OpticalNerve():
         # refactor this into a config file
         #bools
         self.showfeed = False
-        self.showboundingboxes = False
-        self.showdetected = False
+        self.showboundingboxes = True
+        self.showdetected = True
 
         # initialize the known distance from the camera to the reference eye pic, which
         # in this case is 50cm from computer screen
@@ -77,10 +78,23 @@ class OpticalNerve():
         ######## detected objects ######
         self.detectedfaces = []
         self.detectedmoods = []
-
+        logger.info("connecting to messagebus")
         #connect to messagebus
         global client
         client = WebsocketClient()
+
+        def vision(message):
+            if message.data.get('target') == "vision" or  message.data.get('target') == "all" :
+                client.emit(
+                    Message("vision_result",
+                            {'asctime': time.asctime(),
+                             'time': time.time(),
+                             'movement': self.context.movement,
+                             'number of persons': self.context.num_persons,
+                             'master': self.context.master,
+                             'smile detected ': self.context.smiling}))
+
+        client.emitter.on("context_update", vision)
         event_thread = Thread(target=connect)
         event_thread.setDaemon(True)
         event_thread.start()
@@ -149,6 +163,7 @@ class OpticalNerve():
         #########find eye radius from webcam region of interest ########
 
     def find_eye_radius(self, eye):
+        logger.info("measuring eye radius")
         # gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
         # gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
@@ -177,6 +192,7 @@ class OpticalNerve():
         ####### select eye/region of interest from face, find eye radius, compute distance from camera #######
 
     def calculatedist(self, leye, face):
+        logger.info("calculating distance from camera")
         ###select eye region
         eye = face[leye[1]:leye[1] + leye[3] * 1.5, leye[0]:leye[0] + leye[2] * 1.5]
         rad = 2 * self.find_eye_radius(eye)
@@ -185,21 +201,24 @@ class OpticalNerve():
 
     ######quick sloppy background removal######
     def remove_bkg(self, img):
-            #use grabcutwith facerecthas foreground
-            mask = np.zeros(img.shape[:2], np.uint8)
-            bgdModel = np.zeros((1, 65), np.float64)
-            fgdModel = np.zeros((1, 65), np.float64)
-            mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
-            cv2.grabCut(img, mask, self.rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
-            img = img * mask2[:, :, np.newaxis]
-            return img
+        logger.info("removing background")
+        #use grabcutwith facerecthas foreground
+        mask = np.zeros(img.shape[:2], np.uint8)
+        bgdModel = np.zeros((1, 65), np.float64)
+        fgdModel = np.zeros((1, 65), np.float64)
+        mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+        cv2.grabCut(img, mask, self.rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
+        img = img * mask2[:, :, np.newaxis]
+        return img
 
     ###### image filters#####
     #### cartoonify
     def cartoonify(self, pic):
+        logger.info("applying cartoonify filter")
         return cv2.stylization(pic, sigma_s=60, sigma_r=0.07)
     ### nightmare
     def nightmarify(self, pic, bw=True):
+        logger.info("applying nightmarify filter")
         nght_gray, nght_color = cv2.pencilSketch(pic, sigma_s=60, sigma_r=0.07, shade_factor=0.05)
         if bw:
             #nght_gray = cv2.cvtColor(nght_gray, cv2.COLOR_GRAY2BGR)
@@ -207,17 +226,21 @@ class OpticalNerve():
         return nght_color
     #### detail enhance
     def detail_enhance(self, pic):
+        logger.info("applying detail enhance filter")
         return cv2.detailEnhance(pic, sigma_s=10, sigma_r=0.15)
     #### smothify
     def smothify(self, pic):
+        logger.info("applying smothify filter")
         return cv2.edgePreservingFilter(pic, flags=1, sigma_s=60, sigma_r=0.4)
     #### skeletonize
     def skeletonize(self, pic):
+        logger.info("applying skeletonize filter")
         gray = cv2.cvtColor(pic, cv2.COLOR_BGR2GRAY)
         skelton = imutils.skeletonize(gray, size=(3, 3))
         return skelton
     ###### tresh
     def tresholdify(self, pic):
+        logger.info("applying threshold filter")
         pic = cv2.cvtColor(pic, cv2.COLOR_BGR2GRAY)
         pic = cv2.GaussianBlur(pic, (5, 5), 0)
         pic = cv2.adaptiveThreshold(pic, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 115, 1)
@@ -382,6 +405,7 @@ class OpticalNerve():
         return bkg
 
     def updatecontext(self, faceid):
+        logger.info("updating context")
         if len(self.detectedfaces) >= 1:
             self.context.timeuser = time.time()
             self.context.num_persons = len(self.detectedfaces)
@@ -411,15 +435,6 @@ class OpticalNerve():
         #update distance
         self.context.distance = self.distance
 
-        #emit to bus
-        client.emit(
-            Message("context_update",
-                    {'asctime': [time.asctime()],
-                     'time': [time.time()],
-                     'movement': [self.context.movement],
-                     'number of persons': [self.context.num_persons],
-                     'master': [self.context.master],
-                     'smile detected ': [self.context.smiling]}))
         #save to disc
         self.context.update()
 
@@ -431,11 +446,18 @@ class OpticalNerve():
             self.context.read()
             self.feed = self.readeye()
             if show:
+                logger.info("updating feed")
                 bkg = self.draw_gui_bkg()
                 vision = self.draw_feeds(bkg, self.feed)
                 #cv2.imshow("JArbas Vision", vision)
                 cv2.waitKey(10)
-            self.context.printcontext()
+                # emit to bus
+
+
+            logger.info("movement: "+str(self.context.movement))
+            logger.info('number of persons: '+str(self.context.num_persons))
+            logger.info('master: '+str(self.context.master))
+            logger.info('smile detected :'+str(self.context.smiling))
             # wait for quit key - esc or q
             k = cv2.waitKey(100) & 0xff
             if k == 27 or k == ord('q'):
@@ -445,8 +467,8 @@ class OpticalNerve():
     ###### stop face recognition #####
     def stop(self):
         self.fps.stop()
-        print("[INFO] elasped time: {:.2f}".format(self.fps.elapsed()))
-        print("[INFO] approx. FPS: {:.2f}".format(self.fps.fps()))
+        logger.info("elasped time: {:.2f}".format(self.fps.elapsed()))
+        logger.info("[INFO] approx. FPS: {:.2f}".format(self.fps.fps()))
         self.vs.stop()
         self.context.close()
         cv2.destroyAllWindows()
