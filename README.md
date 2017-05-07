@@ -15,6 +15,8 @@ Takes webcam pictures
 
 you must install opencv manually, it does not work from pip install, therefore msm incompatible
 
+pip install imutils
+
 requires display service to show pictures - https://github.com/JarbasAI/service_display
 
 # usage
