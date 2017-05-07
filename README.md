@@ -1,14 +1,56 @@
-# mycroft-vision-service
+# mycroft-vision-skill
 
-run main.py from opticalnerve
+Listens to messagebus "vision_request" queries, replies with info of what is in vision field
 
-will process vision, detect faces, smiles and emit to messagebus so some skill can use info
+Processes images for face detection, eye detection and smile detection
 
-2017-01-26 22:07:16,661 - Skills - DEBUG - {"type": "context_update", "data": {"asctime": ["Thu Jan 26 22:07:16 2017"], "smile detected ": [false], "master": [false], "time": [1485490036.656631], "number of persons": [1], "movement": [false]}, "context": null}
+work in progress - motion detection, face recognition
 
-Currently being used by me to have mycroft take actions by itself when there is no user present, decided to share but this isnt release quality code
+Optionally applies image filters before displaying
+
+Takes webcam pictures
 
 
-known issues:
-- incomplete
-- paths to haar cascades are hardcoded and need to be edited in .py
+# requirements
+
+you must install opencv manually, it does not work from pip install, therefore msm incompatible
+
+requires display service to show pictures - https://github.com/JarbasAI/service_display
+
+# usage
+
+        Input: what do you see
+        2017-05-07 16:23:45,035 - CLIClient - INFO - Speak: Here is what i see
+        * shows feed (with filter if enabled)
+
+        Input: vision data
+        2017-05-07 16:29:00,117 - CLIClient - INFO - Speak: There are 0 persons on view
+        2017-05-07 16:29:00,122 - CLIClient - INFO - Speak: Noone is smiling
+
+        Input: smooth filter
+        2017-05-07 16:29:49,905 - CLIClient - INFO - Speak: smooth filter enabled
+
+        Input: skeleton filter
+        2017-05-07 16:29:53,411 - CLIClient - INFO - Speak: skeleton filter enabled
+
+        Input: thresh filter
+        2017-05-07 16:29:56,608 - CLIClient - INFO - Speak: threshold filter enabled
+
+        Input: detail filter
+        2017-05-07 16:29:59,374 - CLIClient - INFO - Speak: detail filter enabled
+
+        Input: no filter
+        2017-05-07 16:30:01,273 - CLIClient - INFO - Speak: filters disabled
+
+        Input: webcam picture
+        2017-05-07 16:48:21,730 - CLIClient - INFO - Speak: saving picture
+        * saves pic (with filter if enabled)
+        * shows pic (with filter if enabled)
+
+# TODO
+
+- face recognition
+- show bounding boxes intent
+- movement detection
+- more filters
+- distance calculation
