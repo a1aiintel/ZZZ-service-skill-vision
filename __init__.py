@@ -10,7 +10,7 @@ from os import makedirs
 sys.path.append(dirname(dirname(__file__)))
 
 from service_display.displayservice import DisplayService
-
+import time
 import numpy as np
 import cv2
 from imutils.video import FPS
@@ -30,6 +30,7 @@ class VisionSkill(MycroftSkill):
         self.webcam_path = dirname(__file__) + "/webcam"
         if not exists(self.webcam_path):
             makedirs(self.webcam_path)
+        self.server = False
 
     def initialize(self):
         self.display_service = DisplayService(self.emitter)
@@ -138,14 +139,22 @@ class VisionSkill(MycroftSkill):
 
     def handle_vision_request(self, message):
         self.process_frame()
-        # print "is person present: " + str(self.person_on_screen)
-        # print "is master present: " + str(self.master)
-        # print "number of persons: " + str(self.num_persons)
-        # print "distance of main person: " + str(self.distance)
-        # print "smile detected: " + str(self.smiling)
-        # print "movement: " + str(self.movement)
-        response = Message("vision_response", {"movement":self.movement, "master":self.master, "distance":self.distance, "num_persons":self.num_persons, "smile_detected":self.smiling})
-        self.emitter.emit(response)
+        path = self.save_feed(self.webcam_path + "/" + asctime().replace(" ", "_") + ".jpg")
+        target = message.data.get("target")
+        if target is not None and target == "server":
+            # send server a message
+            stype = "file"
+            requester = "vision_service"
+            message_type = "vision_result"
+            message_data = {"movement":self.movement, "master":self.master, "distance":self.distance, "num_persons":self.num_persons, "smile_detected":self.smiling}
+            message_data["file"] = path
+            self.emitter.emit(Message("server_request", {"server_msg_type":stype, "requester":requester, "message_type":message_type, "message_data":message_data}))
+        else:
+            message_type = "vision_result"
+            message_data = {"movement": self.movement, "master": self.master, "distance": self.distance,
+                            "num_persons": self.num_persons, "smile_detected": self.smiling, "target":target}
+            message_data["file"] = path
+            self.emitter.emit(Message(message_type, message_data))
 
     # intents
     def handle_webcam_intent(self, message):
@@ -174,6 +183,27 @@ class VisionSkill(MycroftSkill):
         self.display_service.show(feed_path)
         self.speak_dialog("vision")
 
+    def handle_describe_what_do_you_see_intent(self, message):
+        self.process_frame()
+        feed_path = self.save_feed()
+        classifier = ImageRecognitionService(self.emitter)
+        if self.server:
+            results = classifier.server_image_classification(feed_path, message.data.get("target"))
+        else:
+            results = classifier.local_image_classification(feed_path, message.data.get("target"))
+        i = 0
+        for result in list(results):
+            # cleave first word nxxxxx
+            result = result.split(" ")[1:]
+            r = ""
+            for word in result:
+                r += word + " "
+            result = r[:-1].split(",")[0]
+            results[i] = result
+            i += 1
+
+        self.speak("i see " + results[0] + ", or maybe it is " + results[1])
+
     def handle_skeleton_filter_intent(self, message):
         self.speak_dialog("skeleton")
         self.filter = "skeleton"
@@ -199,6 +229,7 @@ class VisionSkill(MycroftSkill):
         self.log.info("elasped time: {:.2f}".format(self.fps.elapsed()))
         self.log.info("[INFO] approx. FPS: {:.2f}".format(self.fps.fps()))
         self.vs.stop()
+        cv2.destroyAllWindows()
 
     # vision
     def save_feed(self, path=dirname(__file__) + "/feed.jpg"):
@@ -489,3 +520,50 @@ class VisionSkill(MycroftSkill):
 
 def create_skill():
     return VisionSkill()
+
+class ImageRecognitionService():
+    def __init__(self, emitter, timeout=30, logger=None, server=False):
+        self.emitter = emitter
+        self.waiting = False
+        self.server = server
+        self.image_classification_result = None
+        self.timeout = timeout
+        if logger is not None:
+            self.logger = logger
+        else:
+            self.logger = getLogger("ImageRecognitionService")
+        self.emitter.on("image_classification_result", self.end_wait)
+
+    def end_wait(self, message):
+        if message.type == "image_classification_result":
+            self.logger.info("image classification result received")
+            self.image_classification_result = message.data
+        self.waiting = False
+
+    def wait(self):
+        start = time.time()
+        elapsed = 0
+        self.waiting = True
+        while self.waiting and elapsed < self.timeout:
+            elapsed = time.time() - start
+            time.sleep(0.1)
+        if self.waiting:
+            self.image_classification_result = {"classification": "unknown"}
+
+    def local_image_classification(self, picture_path, user_id="unknown"):
+        requester = user_id
+        message_type = "image_classification_request"
+        message_data = {"file": picture_path, "source": requester, "user":"unknown"}
+        self.emitter.emit(Message(message_type, message_data))
+        self.wait()
+        result = self.image_classification_result["classification"]
+        return result
+
+    def server_image_classification(self, picture_path, user_id="unknown"):
+        requester = user_id
+        message_type = "image_classification_request"
+        message_data = {"file": picture_path, "source": requester, "user":"unknown"}
+        self.emitter.emit(Message("server_request", {"server_msg_type":"file", "requester":requester, "message_type": message_type, "message_data": message_data}))
+        self.wait()
+        result = self.image_classification_result["classification"]
+        return result

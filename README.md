@@ -18,12 +18,17 @@ you must install opencv manually, it does not work from pip install, therefore m
 pip install imutils
 
 requires display service to show pictures - https://github.com/JarbasAI/service_display
+optionally requires image_recog - https://github.com/JarbasAI/image_recog_skill
 
 # usage
 
         Input: what do you see
         2017-05-07 16:23:45,035 - CLIClient - INFO - Speak: Here is what i see
         * shows feed (with filter if enabled)
+
+        Input: describe what you see
+        * requests local/server image classification
+        2017-06-17 18:19:23,294 - CLIClient - INFO - Speak: i see suit, or maybe it is Windsor tie
 
         Input: vision data
         2017-05-07 16:29:00,117 - CLIClient - INFO - Speak: There are 0 persons on view
@@ -51,7 +56,7 @@ requires display service to show pictures - https://github.com/JarbasAI/service_
 
 # TODO
 
-- face recognition
+- facerecognition interface -> https://github.com/JarbasAI/face_recog_skill
 - show bounding boxes intent
 - movement detection
 - more filters
